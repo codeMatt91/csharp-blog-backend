@@ -20,15 +20,19 @@ namespace csharp_blog_backend.Controllers
             _context = context;
         }
 
+
         // GET: api/Posts
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Post>>> Getposts()
+        public async Task<ActionResult<IEnumerable<Post>>> Getposts(string? search)
         {
             if (_context.posts == null)
             {
                 return NotFound();
             }
-            return await _context.posts.ToListAsync();
+            if(search != null)
+                return await _context.posts.Where(m=>m.Title.Contains(search)).ToListAsync();
+            else
+                return await _context.posts.ToListAsync();
         }
 
         // GET: api/Posts/5
@@ -45,6 +49,14 @@ namespace csharp_blog_backend.Controllers
             {
                 return NotFound();
             }
+
+            //string fileName = "immagine-" + post.Id + "." + post.Image.Substring("FileLocal;".Length);
+            //string Image = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot\\Files");
+
+            //if (!Directory.Exists(Image))
+            //    Directory.CreateDirectory(Image);
+
+            //post.Image = "https://localhost:5000/Files/" + fileName;
 
             return post;
         }
@@ -84,14 +96,36 @@ namespace csharp_blog_backend.Controllers
         // POST: api/Posts
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Post>> PostPost(Post post)
+        public async Task<ActionResult<Post>> PostPost([FromForm] Post post)
         {
-            if (_context.posts == null)
+            FileInfo fileInfo = new FileInfo(post.File.FileName);
+            //post.Image = $"FileLocal.{fileInfo.Extension}";
+            Guid g = Guid.NewGuid();
+
+            string fileName = g.ToString() + fileInfo.Extension;
+
+
+            //Estrazione File e salvataggio su file system.
+            //Agendo su Request ci prendiamo il file e lo salviamo su file system.
+
+            string Image = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/Files");
+
+            if (!Directory.Exists(Image))
+                Directory.CreateDirectory(Image);
+
+            string fileNameWithPath = Path.Combine(Image, fileName);
+
+            using (var stream = new FileStream(fileNameWithPath, FileMode.Create))
             {
-                return Problem("Entity set 'BlogContext.posts'  is null.");
+                post.File.CopyTo(stream);
             }
+
+
+            post.Image = "https://localhost:5000/Files/" + fileName;
+
             _context.posts.Add(post);
             await _context.SaveChangesAsync();
+           
 
             return CreatedAtAction("GetPost", new { id = post.Id }, post);
         }
